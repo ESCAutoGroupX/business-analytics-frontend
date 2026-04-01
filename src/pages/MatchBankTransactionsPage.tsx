@@ -282,6 +282,7 @@ export default function MatchBankTransactionsPage() {
                   <tr>
                     {[
                       { key: "date", label: "Date" },
+                      { key: "", label: "Card / Account" },
                       { key: "", label: "Check/Dep #" },
                       { key: "vendor", label: "Vendor" },
                       { key: "name", label: "Description" },
@@ -308,6 +309,7 @@ export default function MatchBankTransactionsPage() {
                   {ledgerData?.ledger.map((row) => (
                     <tr key={row.id} className="hover:bg-slate-800/40">
                       <td className="px-4 py-3 text-slate-300">{row.date}</td>
+                      <td className="px-4 py-3 text-slate-300">{row.account_name || "—"}</td>
                       <td className="px-4 py-3 text-slate-400">—</td>
                       <td className="px-4 py-3 text-slate-200">{row.vendor || row.merchant_name}</td>
                       <td className="px-4 py-3 text-slate-300">{row.name}</td>
@@ -472,6 +474,7 @@ export default function MatchBankTransactionsPage() {
                   <tr>
                     {[
                       { key: "date", label: "Date" },
+                      { key: "", label: "Card / Account" },
                       { key: "", label: "Check/Dep #" },
                       { key: "vendor", label: "Vendor" },
                       { key: "name", label: "Description" },
@@ -498,6 +501,7 @@ export default function MatchBankTransactionsPage() {
                   {ccData?.data.map((row) => (
                     <tr key={row.id} className="hover:bg-slate-800/40">
                       <td className="px-4 py-3 text-slate-300">{row.date}</td>
+                      <td className="px-4 py-3 text-slate-300">{row.account_name || "—"}</td>
                       <td className="px-4 py-3 text-slate-400">—</td>
                       <td className="px-4 py-3 text-slate-200">{row.vendor || row.merchant_name}</td>
                       <td className="px-4 py-3 text-slate-300">{row.name}</td>
