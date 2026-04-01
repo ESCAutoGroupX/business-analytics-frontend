@@ -95,19 +95,31 @@ export default function DashboardPage() {
   useEffect(() => {
     client
       .get<BankBalanceResponse>("/dashboard/bank-balance")
-      .then((r) => setBankBalance(r.data.totals.total_balance_available))
+      .then((r) => {
+        const bal = r.data?.totals?.total_balance_available ?? null;
+        setBankBalance(bal);
+        if (bal == null) setErrorBalance("No data available");
+      })
       .catch(() => setErrorBalance("Failed to load bank balance"))
       .finally(() => setLoadingBalance(false));
 
     client
       .get<ItemsNeedAttentionResponse>("/dashboard/items-need-attention")
-      .then((r) => setAttention(r.data.data))
+      .then((r) => {
+        const d = r.data?.data ?? null;
+        setAttention(d);
+        if (d == null) setErrorAttention("No data available");
+      })
       .catch(() => setErrorAttention("Failed to load items needing attention"))
       .finally(() => setLoadingAttention(false));
 
     client
       .get<TrendAccount[]>("/dashboard/api/bank-balance-trends")
-      .then((r) => setTrends(r.data))
+      .then((r) => {
+        const d = Array.isArray(r.data) ? r.data : null;
+        setTrends(d);
+        if (d == null || d.length === 0) setErrorTrends("No data available");
+      })
       .catch(() => setErrorTrends("Failed to load balance trends"))
       .finally(() => setLoadingTrends(false));
   }, []);
@@ -115,12 +127,14 @@ export default function DashboardPage() {
   // Build chart data from trends
   const chartData: Record<string, string | number>[] = [];
   const accountNames: string[] = [];
-  if (trends && trends.length > 0) {
+  if (Array.isArray(trends) && trends.length > 0) {
     const dateSet = new Set<string>();
     for (const acct of trends) {
-      accountNames.push(acct.account_name);
-      for (const d of Object.keys(acct.daily_bank_balance)) {
-        dateSet.add(d);
+      if (acct?.account_name) accountNames.push(acct.account_name);
+      if (acct?.daily_bank_balance) {
+        for (const d of Object.keys(acct.daily_bank_balance)) {
+          dateSet.add(d);
+        }
       }
     }
     const sortedDates = Array.from(dateSet).sort(
@@ -129,16 +143,18 @@ export default function DashboardPage() {
     for (const date of sortedDates) {
       const row: Record<string, string | number> = { date };
       for (const acct of trends) {
-        row[acct.account_name] = acct.daily_bank_balance[date] ?? 0;
+        if (acct?.account_name) {
+          row[acct.account_name] = acct.daily_bank_balance?.[date] ?? 0;
+        }
       }
       chartData.push(row);
     }
   }
 
   // Credit cards due soon
-  const creditCardsDueSoon = attention
+  const creditCardsDueSoon = Array.isArray(attention?.credit_card_overdue)
     ? attention.credit_card_overdue.filter(
-        (c) => c.next_payment_due_date && daysUntil(c.next_payment_due_date) <= 30,
+        (c) => c?.next_payment_due_date && daysUntil(c.next_payment_due_date) <= 30,
       )
     : [];
 
@@ -192,10 +208,10 @@ export default function DashboardPage() {
                 Overdue Payables
               </p>
               <p className="mt-2 text-xl font-bold text-red-400">
-                {attention.overdue_payables.overdue_bill_count} bills
+                {attention?.overdue_payables?.overdue_bill_count ?? 0} bills
               </p>
               <p className="text-sm text-slate-400">
-                {formatCurrency(attention.overdue_payables.total_overdue)} total
+                {formatCurrency(attention?.overdue_payables?.total_overdue ?? 0)} total
               </p>
             </div>
 
@@ -205,10 +221,10 @@ export default function DashboardPage() {
                 Aging Receivables
               </p>
               <p className="mt-2 text-xl font-bold text-amber-400">
-                {attention.account_receivable.total_repair_orders} orders
+                {attention?.account_receivable?.total_repair_orders ?? 0} orders
               </p>
               <p className="text-sm text-slate-400">
-                {formatCurrency(attention.account_receivable.total_receivable)}{" "}
+                {formatCurrency(attention?.account_receivable?.total_receivable ?? 0)}{" "}
                 outstanding
               </p>
             </div>
@@ -221,7 +237,7 @@ export default function DashboardPage() {
               <p className="mt-2 text-xl font-bold text-orange-400">
                 {creditCardsDueSoon.length} cards
               </p>
-              {creditCardsDueSoon.length > 0 && creditCardsDueSoon[0].next_payment_due_date && (
+              {creditCardsDueSoon.length > 0 && creditCardsDueSoon[0]?.next_payment_due_date && (
                 <p className="text-sm text-slate-400">
                   next in {daysUntil(creditCardsDueSoon[0].next_payment_due_date)}{" "}
                   days
@@ -235,10 +251,10 @@ export default function DashboardPage() {
                 Low Bank Balance
               </p>
               <p className="mt-2 text-xl font-bold text-red-400">
-                {formatCurrency(attention.lowest_bank_account.balance)}
+                {formatCurrency(attention?.lowest_bank_account?.balance ?? 0)}
               </p>
               <p className="text-sm text-slate-400">
-                {attention.lowest_bank_account.account_name}
+                {attention?.lowest_bank_account?.account_name ?? "N/A"}
               </p>
             </div>
           </div>
