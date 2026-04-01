@@ -605,9 +605,30 @@ export default function SettingsPage() {
                   {/* Location assignment */}
                   {locations.length > 0 && (
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-slate-300">
-                        Locations
-                      </label>
+                      <div className="mb-2 flex items-center justify-between">
+                        <label className="text-sm font-medium text-slate-300">
+                          Locations
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const allIds = locations.map((l) => String(l.id));
+                            const allSelected =
+                              allIds.every((id) => userForm.location_ids.includes(id));
+                            setUserForm((f) => ({
+                              ...f,
+                              location_ids: allSelected ? [] : allIds,
+                            }));
+                          }}
+                          className="text-xs text-blue-400 hover:text-blue-300"
+                        >
+                          {locations
+                            .map((l) => String(l.id))
+                            .every((id) => userForm.location_ids.includes(id))
+                            ? "Deselect All"
+                            : "Select All"}
+                        </button>
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         {locations.map((loc) => (
                           <label
