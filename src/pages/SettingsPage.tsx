@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { usePlaidLink } from "react-plaid-link";
 import client from "../api/client";
 
 interface UserProfile {
@@ -9,6 +10,18 @@ interface UserProfile {
   mobile_number: string;
   role: string;
   full_name: string;
+}
+
+interface PlaidAccount {
+  account_id: string;
+  name: string;
+  type: string;
+  subtype: string;
+  mask: string;
+  balances: {
+    current: number | null;
+    available: number | null;
+  };
 }
 
 function Spinner() {
@@ -31,6 +44,13 @@ export default function SettingsPage() {
   const [pwMsg, setPwMsg] = useState("");
   const [pwError, setPwError] = useState("");
 
+  // Plaid state
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [plaidAccounts, setPlaidAccounts] = useState<PlaidAccount[]>([]);
+  const [plaidLoading, setPlaidLoading] = useState(false);
+  const [plaidMsg, setPlaidMsg] = useState("");
+  const [plaidError, setPlaidError] = useState("");
+
   useEffect(() => {
     client
       .get<UserProfile>("/users/me")
@@ -38,6 +58,68 @@ export default function SettingsPage() {
       .catch(() => setError("Failed to load profile"))
       .finally(() => setLoading(false));
   }, []);
+
+  // Fetch connected accounts
+  function fetchAccounts() {
+    setPlaidLoading(true);
+    client
+      .get("/plaid/sync_transactions")
+      .then((r) => {
+        const accounts = r.data?.accounts;
+        if (Array.isArray(accounts)) {
+          setPlaidAccounts(accounts);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setPlaidLoading(false));
+  }
+
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
+
+  // Get link token for Plaid Link
+  function handleConnectBank() {
+    if (!user) return;
+    setPlaidError("");
+    setPlaidMsg("");
+    client
+      .post<{ link_token: string }>("/plaid/link-token", { user_id: user.id })
+      .then((r) => setLinkToken(r.data.link_token))
+      .catch(() => setPlaidError("Failed to initialize bank connection."));
+  }
+
+  const onPlaidSuccess = useCallback(
+    (publicToken: string) => {
+      if (!user) return;
+      setPlaidMsg("");
+      setPlaidError("");
+      client
+        .post("/plaid/exchange_public_token", {
+          public_token: publicToken,
+          user_id: user.id,
+        })
+        .then(() => {
+          setPlaidMsg("Bank account connected successfully!");
+          setLinkToken(null);
+          fetchAccounts();
+        })
+        .catch(() => setPlaidError("Failed to link bank account."));
+    },
+    [user],
+  );
+
+  const { open: openPlaid, ready: plaidReady } = usePlaidLink({
+    token: linkToken,
+    onSuccess: onPlaidSuccess,
+    onExit: () => setLinkToken(null),
+  });
+
+  useEffect(() => {
+    if (linkToken && plaidReady) {
+      openPlaid();
+    }
+  }, [linkToken, plaidReady, openPlaid]);
 
   function handlePasswordChange(e: FormEvent) {
     e.preventDefault();
@@ -146,8 +228,75 @@ export default function SettingsPage() {
       </section>
 
       <section className="rounded-xl bg-[#1e293b] p-6">
-        <h2 className="mb-2 text-lg font-semibold text-white">Integrations</h2>
-        <p className="text-sm text-slate-400">Integration settings coming soon.</p>
+        <h2 className="mb-4 text-lg font-semibold text-white">Integrations</h2>
+
+        {/* Connect Bank Account */}
+        <div className="mb-4">
+          <h3 className="mb-3 text-sm font-semibold text-slate-300">
+            Connect Bank Account
+          </h3>
+
+          {plaidMsg && (
+            <div className="mb-3 rounded-md border border-emerald-800 bg-emerald-950 px-4 py-2.5 text-sm text-emerald-300">
+              {plaidMsg}
+            </div>
+          )}
+          {plaidError && (
+            <div className="mb-3 rounded-md border border-red-800 bg-red-950 px-4 py-2.5 text-sm text-red-300">
+              {plaidError}
+            </div>
+          )}
+
+          <button
+            onClick={handleConnectBank}
+            disabled={!user}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            Connect Bank Account
+          </button>
+        </div>
+
+        {/* Connected Accounts */}
+        <div>
+          <h3 className="mb-3 text-sm font-semibold text-slate-300">
+            Connected Accounts
+          </h3>
+          {plaidLoading ? (
+            <Spinner />
+          ) : plaidAccounts.length > 0 ? (
+            <div className="space-y-2">
+              {plaidAccounts.map((acct) => (
+                <div
+                  key={acct.account_id}
+                  className="flex items-center justify-between rounded-lg bg-slate-800 px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-slate-200">
+                      {acct.name}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {acct.type}
+                      {acct.subtype ? ` / ${acct.subtype}` : ""}
+                      {acct.mask ? ` ••••${acct.mask}` : ""}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    {acct.balances?.current != null && (
+                      <p className="text-sm font-medium text-emerald-400">
+                        {new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: "USD",
+                        }).format(acct.balances.current)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">No connected accounts</p>
+          )}
+        </div>
       </section>
     </div>
   );
