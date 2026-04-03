@@ -166,7 +166,7 @@ export default function SettingsPage() {
     e.preventDefault();
     setUserFormError("");
 
-    if (!editingUserId && userForm.password !== userForm.confirm_password) {
+    if (userForm.password && userForm.password !== userForm.confirm_password) {
       setUserFormError("Passwords do not match.");
       return;
     }
@@ -291,7 +291,7 @@ export default function SettingsPage() {
     }
   }, [linkToken, plaidReady, openPlaid]);
 
-  function handlePasswordChange(e: FormEvent) {
+  async function handlePasswordChange(e: FormEvent) {
     e.preventDefault();
     setPwMsg("");
     setPwError("");
@@ -299,8 +299,17 @@ export default function SettingsPage() {
       setPwError("Passwords do not match.");
       return;
     }
-    setPwMsg("Password change is not yet implemented.");
-    setPwForm({ current: "", new_password: "", confirm: "" });
+    if (pwForm.new_password.length < 6) {
+      setPwError("Password must be at least 6 characters.");
+      return;
+    }
+    try {
+      await client.patch("/users/me", { password: pwForm.new_password });
+      setPwMsg("Password updated successfully.");
+      setPwForm({ current: "", new_password: "", confirm: "" });
+    } catch {
+      setPwError("Failed to update password.");
+    }
   }
 
   return (
